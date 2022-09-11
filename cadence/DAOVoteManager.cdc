@@ -1,189 +1,27 @@
-// This is an example implementation of a Flow Fungible Token
-// It is not part of the official standard but it assumed to be
-// very similar to how many NFTs would implement the core functionality.
 import Crypto
-import FungibleToken from "./utility/FungibleToken.cdc"
 import FCLCrypto from "./utility/FCLCrypto.cdc"
+import FungibleToken from "./utility/FungibleToken.cdc"
+import ExampleDAOToken from "./ExampleDAOToken.cdc"
 
-pub contract ExampleDAOToken: FungibleToken {
+pub contract DAOVoteManager {
+    // ------- Struct Interfaces -------- //
 
-    // Total supply of ExampleDAOTokens in existence
-    pub var totalSupply: UFix64
-
-    // Variable for determining if tokens are transferrable
-    pub var transferrable: Bool
-
-    // Current holders of ExampleDAOToken
-    pub let currentHolders: {Address: Bool}
-
-    // Percentage of totalSupply required to pass VotingAction
-    pub var threshold: UFix64
-
-    // Percentage of currentHolders required to vote on a VotingAction before a passing actions can be performed
-    pub var quorum: UFix64
-
-    // Amount of seconds for a voiting actiong to be open for
-    pub var votingWindow: UFix64
-
-    //StoragePaths for ExampleDAOToken
-    pub let VaultStoragePath: StoragePath
-    pub let VaultReceiverPath: PublicPath
-    pub let VaultBalancePath: PublicPath
-    pub let AdminStoragePath: StoragePath
-
-    // TokensInitialized
+    // VoteAction
     //
-    // The event that is emitted when the contract is created
-    pub event TokensInitialized(initialSupply: UFix64)
-
-    // TokensWithdrawn
+    // Each action that could be voted on must implement the VoteAction interface
     //
-    // The event that is emitted when tokens are withdrawn from a Vault
-    pub event TokensWithdrawn(amount: UFix64, from: Address?)
-
-    // TokensDeposited
-    //
-    // The event that is emitted when tokens are deposited to a Vault
-    pub event TokensDeposited(amount: UFix64, to: Address?)
-
-    // TokensMinted
-    //
-    // The event that is emitted when new tokens are minted
-    pub event TokensMinted(amount: UFix64)
-
-    // TokensBurned
-    //
-    // The event that is emitted when tokens are destroyed
-    pub event TokensBurned(amount: UFix64, from: Address?)
-
-    // Admin Events
-    //
-    // The events are emttied when Admin Actions are propsed or executed
-    pub event ProposeAction(actionUUID: UInt64, proposer: Address)
-    pub event ExecuteAction(actionUUID: UInt64, proposer: Address)
-
-    // TokenVoting Events
-    //
-    // These events are emttied when Voting actions are taken
-    pub event ActionExecutedByManager(uuid: UInt64)
-    pub event ActionApprovedBySigner(address: Address, uuid: UInt64)
-    pub event ActionRejectedBySigner(address: Address, uuid: UInt64)
-    pub event ActionCreated(uuid: UInt64, intent: String)
-    pub event ActionDestroyed(uuid: UInt64)
-
-    // Vault
-    //
-    // Each user stores an instance of only the Vault in their storage
-    // The functions in the Vault and governed by the pre and post conditions
-    // in FungibleToken when they are called.
-    // The checks happen at runtime whenever a function is called.
-    //
-    // Resources can only be created in the context of the contract that they
-    // are defined in, so there is no way for a malicious user to create Vaults
-    // out of thin air. A special Minter resource needs to be defined to mint
-    // new tokens.
-    //
-    pub resource Vault: FungibleToken.Provider, FungibleToken.Receiver, FungibleToken.Balance {
-
-        // The total balance of this vault
-        pub var balance: UFix64
-
-        // withdraw
-        //
-        // Function that takes an amount as an argument
-        // and withdraws that amount from the Vault.
-        //
-        // It creates a new temporary Vault that is used to hold
-        // the money that is being transferred. It returns the newly
-        // created Vault to the context that called so it can be deposited
-        // elsewhere.
-        //
-        pub fun withdraw(amount: UFix64): @FungibleToken.Vault {
-            pre {
-                ExampleDAOToken.transferrable: "Token is not transferrable"
-            }
-
-            self.balance = self.balance - amount
-            emit TokensWithdrawn(amount: amount, from: self.owner?.address)
-
-            if self.balance == 0.0 {
-                ExampleDAOToken.currentHolders.remove(key: self.owner!.address)
-            }
-            return <-create Vault(balance: amount)
-        }
-
-        // deposit
-        //
-        // Function that takes a Vault object as an argument and adds
-        // its balance to the balance of the owners Vault.
-        //
-        // It is allowed to destroy the sent Vault because the Vault
-        // was a temporary holder of the tokens. The Vault's balance has
-        // been consumed and therefore can be destroyed.
-        //
-        pub fun deposit(from: @FungibleToken.Vault) {
-            let vault <- from as! @ExampleDAOToken.Vault
-            self.balance = self.balance + vault.balance
-            emit TokensDeposited(amount: vault.balance, to: self.owner?.address)
-            ExampleDAOToken.currentHolders[self.owner!.address] = true
-            vault.balance = 0.0
-            destroy vault
-        }
-
-        // burn
-        //
-        // Function that burns tokens from the owners Vault and totalSupply
-        //
-        pub fun burn(amount: UFix64) {
-            pre {
-                self.balance >= amount:
-                    "Amount burned must be less than or equal than the balance of the Vault"
-            }
-
-            self.balance - amount
-            ExampleDAOToken.totalSupply = ExampleDAOToken.totalSupply - amount
-            emit TokensBurned(amount: amount, from: self.owner?.address)
-
-            if self.balance == 0.0 {
-                ExampleDAOToken.currentHolders.remove(key: self.owner!.address)
-            }
-        }
-
-        // initialize the balance at resource creation time
-        init(balance: UFix64) {
-            self.balance = balance
-        }
-
-        destroy() {
-            ExampleDAOToken.totalSupply = ExampleDAOToken.totalSupply - self.balance
-        }
-    }
-
-    // createEmptyVault
-    //
-    // Function that creates a new Vault with a balance of zero
-    // and returns it to the calling context. A user must call this function
-    // and store the returned Vault in their storage in order to allow their
-    // account to be able to receive deposits of this token type.
-    //
-    pub fun createEmptyVault(): @Vault {
-        return <-create Vault(balance: 0.0)
-    }
-
-    //
-    // ------- Action Wrapper ------- 
-    //
-
-    pub struct interface Action {
+    pub struct interface VoteAction {
         pub let intent: String
         pub let proposer: Address
-        access(account) fun execute(_ adminRef: &Admin)
+        access(account) fun execute()
     }
 
-    //
-    // ------- Structs --------
-    //
+    // ------- Structs -------- //
 
+    // MessageSignaturePayload
+    //
+    // Struct to wrap a signature payload for each signers vote.
+    //
     pub struct MessageSignaturePayload {
         pub let signingAddr: Address
         pub let message: String
@@ -200,6 +38,10 @@ pub contract ExampleDAOToken: FungibleToken {
         }
     }
 
+    // ValidateSignatureResponse
+    //
+    // Struct to wrap the signature validation response.
+    //
     pub struct ValidateSignatureResponse {
         pub let isValid: Bool
         pub let totalWeight: UFix64
@@ -210,27 +52,40 @@ pub contract ExampleDAOToken: FungibleToken {
         }
     }
 
-    //
-    // ------- Enums------- 
-    //
+    // ------- Enums------- //
 
+    // SignerResponse
+    //
+    // Enum to wrap the signer response to a VoteAction
+    //
     pub enum SignerResponse: UInt {
         pub case approved
         pub case rejected
         pub case pending
     }
 
+    // Stage
+    //
+    // Enum to wrap the current stage of a VoteAction
+    //
     pub enum Stage: UInt8 {
         pub case notStarted
         pub case pending
         pub case ended
     }
 
+    // ------- Resource Interfaces ------- //
+
+    // VoteManager Interface
     //
-    // ------- Resource Interfaces ------- 
+    // To utilize the DAOVoteManager in your DAO Contracts ensure they conform to the following interfaces.
     //
-    pub resource interface AdminPublic {
-        pub fun proposeAction(action: {Action}, signaturePayload: MessageSignaturePayload): UInt64
+    pub resource interface VoteManager {
+        access(contract) let voteManager: @Manager
+    }
+
+    pub resource interface VoteManagerPublic {
+        pub fun proposeAction(action: {VoteAction}, signaturePayload: MessageSignaturePayload): UInt64
         pub fun getIDs(): [UInt64]
         pub fun getIntents(): {UInt64: String}
         pub fun getSignerResponsesForAction(actionUUID: UInt64): {Address: UInt}
@@ -239,9 +94,18 @@ pub contract ExampleDAOToken: FungibleToken {
         pub fun vote(actionUUID: UInt64, messageSignaturePayload: MessageSignaturePayload, signerResponse: SignerResponse)
     }
 
-    //
-    // ------- Resources ------- 
-    //
+    pub resource interface ManagerPublic {
+        pub fun borrowAction(actionUUID: UInt64): &MultiSignAction
+        pub fun getIDs(): [UInt64]
+        pub fun getIntents(): {UInt64: String}
+        pub fun getSigners(): {Address: Bool}
+        pub fun getThreshold(): UInt
+        pub fun getSignerResponsesForAction(actionUUID: UInt64): {Address: UInt}
+        pub fun getTotalApprovedForAction(actionUUID: UInt64): Int
+        pub fun getTotalRejectedForAction(actionUUID: UInt64): Int
+    }
+
+    // ------- Resources ------- //
 
     pub resource VotingAction {
         pub var startTime: UFix64
@@ -250,7 +114,7 @@ pub contract ExampleDAOToken: FungibleToken {
         pub var totalVoted: UFix64
         pub var totalApproved: UFix64
         pub var totalRejected: UFix64
-        access(contract) let action: {Action}
+        access(contract) let action: {VoteAction}
 
         access(contract) fun setSignerResponse(signer: Address, value: SignerResponse) {
             let vaultRef = getAccount(signer)
@@ -266,7 +130,7 @@ pub contract ExampleDAOToken: FungibleToken {
             self.signerResponses[signer] = value
         }
 
-        init(signers: [Address], action: {Action}) {
+        init(signers: [Address], action: {VoteAction}) {
             let timestamp = getCurrentBlock().timestamp
 
             self.signerResponses = {}
@@ -283,13 +147,13 @@ pub contract ExampleDAOToken: FungibleToken {
     //
     // Resource object for administering Voting Actions and minting/burning Example Token.
     //
-    pub resource Admin: AdminPublic {
+    pub resource Manager: VoteManagerPublic {
         // Maps the `uuid` of the VotingAction
         // to the resource itself
         access(self) var actions: @{UInt64: VotingAction}
 
         // ------- Manager -------   
-        pub fun proposeAction(action: {Action}, signaturePayload: MessageSignaturePayload): UInt64 {
+        pub fun proposeAction(action: {VoteAction}, signaturePayload: MessageSignaturePayload): UInt64 {
             self.validateTreasurySigner(identifier: action.intent, signaturePayload: signaturePayload)
 
             let uuid = self.createVotingAction(action: action)
@@ -305,7 +169,7 @@ pub contract ExampleDAOToken: FungibleToken {
             emit ActionExecutedByManager(uuid: actionUUID)
         }
 
-        access(self) fun createVotingAction(action: {Action}): UInt64 {
+        access(self) fun createVotingAction(action: {VoteAction}): UInt64 {
             let newAction <- create VotingAction(signers: ExampleDAOToken.currentHolders.keys, action: action)
             let uuid = newAction.uuid
             self.actions[newAction.uuid] <-! newAction
@@ -537,27 +401,6 @@ pub contract ExampleDAOToken: FungibleToken {
             blockIdHex == messageBlockId,
             message: "Invalid Message: invalid blockId"
         )
-    }
-
-    init(initialSupply: UFix64, transferrable: Bool, initialThreshold: UFix64, initialQuorum: UFix64, initialVotingWindow: UFix64) {
-        self.totalSupply = initialSupply
-        self.transferrable = transferrable
-        self.currentHolders = {}
-        self.threshold = initialThreshold
-        self.quorum = initialQuorum
-        self.votingWindow = initialVotingWindow
-
-        self.VaultStoragePath = /storage/ExampleDAOTokenVault
-        self.VaultReceiverPath = /public/ExampleDAOTokenReceiver
-        self.VaultBalancePath = /public/ExampleDAOTokenBalance
-        self.AdminStoragePath = /storage/ExampleDAOTokenMinter
-
-        let admin <- create Admin()
-        self.account.save(<- admin, to: self.AdminStoragePath)
-
-        // Emit an event that shows that the contract was initialized
-        //
-        emit TokensInitialized(initialSupply: self.totalSupply)
     }
 }
  
