@@ -1,4 +1,5 @@
 import DAOManager from "../DAOManager.cdc"
+import FungibleToken from "../utility/FungibleToken.cdc"
 import FlowToken from "../utility/FlowToken.cdc"
 import FiatToken from "../utility/FiatToken.cdc"
 import FUSD from "../utility/FUSD.cdc"
@@ -10,11 +11,11 @@ transaction(initialSigners: [Address], initialThreshold: UInt) {
 
     // Seed Treasury with commonly used vaults
     let flowVault <- FlowToken.createEmptyVault()
-    let usdcVault <- FiatToken.createEmptyVault()
+    let usdcVault <- FiatToken.createEmptyVault() as! @FungibleToken.Vault
     let fusdVault <- FUSD.createEmptyVault()
 
     dao.depositVault(vault: <- flowVault)
-    dao.depositVault(vault: <- usdcVault)
+    dao.depositVault(vault: <- usdcVault) 
     dao.depositVault(vault: <- fusdVault)
 
     // Save Treasury to the account
