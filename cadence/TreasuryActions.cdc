@@ -1,9 +1,9 @@
 import MyMultiSigV4 from "./MyMultiSig.cdc"
-import DAOTreasuryV4 from "./DAOTreasury.cdc"
+import DAOManager from "./DAOManager.cdc"
 import FungibleToken from "./utility/FungibleToken.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 
-pub contract TreasuryActionsV4 {
+pub contract DAOActions {
 
   // Utility
   pub fun InitializeActionView(type: String, intent: String, proposer: Address): MyMultiSigV4.ActionView {
@@ -21,7 +21,7 @@ pub contract TreasuryActionsV4 {
     )
   }
 
-  // Transfers `amount` tokens from the treasury to `recipientVault`
+  // Transfers `amount` tokens from the dao to `recipientVault`
   pub struct TransferToken: MyMultiSigV4.Action {
     pub let intent: String
     pub let proposer: Address
@@ -29,14 +29,14 @@ pub contract TreasuryActionsV4 {
     pub let amount: UFix64
 
     access(account) fun execute(_ params: {String: AnyStruct}) {
-      let treasuryRef: &DAOTreasuryV4.Treasury = params["treasury"]! as! &DAOTreasuryV4.Treasury
+      let daoRef: &DAOManager.DAO = params["dao"]! as! &DAOManager.DAO
       let vaultID: String = self.recipientVault.borrow()!.getType().identifier
-      let withdrawnTokens <- treasuryRef.withdrawTokens(identifier: vaultID, amount: self.amount)
+      let withdrawnTokens <- daoRef.withdrawTokens(identifier: vaultID, amount: self.amount)
       self.recipientVault.borrow()!.deposit(from: <- withdrawnTokens)
     }
 
     pub fun getView(): MyMultiSigV4.ActionView {
-      let view: MyMultiSigV4.ActionView = TreasuryActionsV4.InitializeActionView(
+      let view: MyMultiSigV4.ActionView = DAOActions.InitializeActionView(
         type: "TransferToken",
         intent: self.intent,
         proposer: self.proposer
@@ -56,7 +56,7 @@ pub contract TreasuryActionsV4 {
                         .concat(amount.toString())
                         .concat(" ")
                         .concat(recipientVault.borrow()!.getType().identifier)
-                        .concat(" tokens from the treasury to ")
+                        .concat(" tokens from the dao to ")
                         .concat(recipientVault.borrow()!.owner!.address.toString())
       self.recipientVault = recipientVault
       self.amount = amount
@@ -64,54 +64,54 @@ pub contract TreasuryActionsV4 {
     }
   }
 
-  // Transfers `amount` of `identifier` tokens from the treasury to another treasury
-  pub struct TransferTokenToTreasury: MyMultiSigV4.Action {
+  // Transfers `amount` of `identifier` tokens from the dao to another dao
+  pub struct TransferTokenToDAO: MyMultiSigV4.Action {
     pub let intent: String
     pub let proposer: Address
     pub let identifier: String
-    pub let recipientTreasury: Capability<&{DAOTreasuryV4.TreasuryPublic}>
+    pub let recipientDAO: Capability<&{DAOManager.DAOPublic}>
     pub let amount: UFix64
 
     access(account) fun execute(_ params: {String: AnyStruct}) {
-      let treasuryRef: &DAOTreasuryV4.Treasury = params["treasury"]! as! &DAOTreasuryV4.Treasury
-      let withdrawnTokens <- treasuryRef.withdrawTokens(identifier: self.identifier, amount: self.amount)
+      let daoRef: &DAOManager.DAO = params["dao"]! as! &DAOManager.DAO
+      let withdrawnTokens <- daoRef.withdrawTokens(identifier: self.identifier, amount: self.amount)
 
-      let recipientAddr = self.recipientTreasury.borrow()!.owner!.address
-      self.recipientTreasury.borrow()!.depositTokens(identifier: self.identifier, vault: <- withdrawnTokens)
+      let recipientAddr = self.recipientDAO.borrow()!.owner!.address
+      self.recipientDAO.borrow()!.depositTokens(identifier: self.identifier, vault: <- withdrawnTokens)
     }
 
     pub fun getView(): MyMultiSigV4.ActionView {
-      let view: MyMultiSigV4.ActionView = TreasuryActionsV4.InitializeActionView(
-        type: "TransferTokenToTreasury",
+      let view: MyMultiSigV4.ActionView = DAOActions.InitializeActionView(
+        type: "TransferTokenToDAO",
         intent: self.intent,
         proposer: self.proposer
       )
-      view.recipient = self.recipientTreasury.borrow()!.owner!.address
+      view.recipient = self.recipientDAO.borrow()!.owner!.address
       view.vaultId = self.identifier
       view.tokenAmount = self.amount
       return view 
     }
 
-    init(recipientTreasury: Capability<&{DAOTreasuryV4.TreasuryPublic}>, identifier: String, amount: UFix64, proposer: Address) {
+    init(recipientDAO: Capability<&{DAOManager.DAOPublic}>, identifier: String, amount: UFix64, proposer: Address) {
       pre {
         amount > 0.0 : "Amount should be higher than 0.0"  
       }
       
-      let recipientAddr = recipientTreasury.borrow()!.owner!.address
+      let recipientAddr = recipientDAO.borrow()!.owner!.address
       self.intent = "Transfer "
                         .concat(amount.toString())
                         .concat(" ")
                         .concat(identifier)
-                        .concat(" tokens from the treasury to ")
+                        .concat(" tokens from the dao to ")
                         .concat(recipientAddr.toString())
       self.proposer = proposer
       self.identifier = identifier
-      self.recipientTreasury = recipientTreasury
+      self.recipientDAO = recipientDAO
       self.amount = amount
     }
   }
 
-  // Transfers an NFT from the treasury to `recipientCollection`
+  // Transfers an NFT from the dao to `recipientCollection`
   pub struct TransferNFT: MyMultiSigV4.Action {
     pub let intent: String
     pub let proposer: Address
@@ -119,16 +119,16 @@ pub contract TreasuryActionsV4 {
     pub let withdrawID: UInt64
 
     access(account) fun execute(_ params: {String: AnyStruct}) {
-      let treasuryRef: &DAOTreasuryV4.Treasury = params["treasury"]! as! &DAOTreasuryV4.Treasury
+      let daoRef: &DAOManager.DAO = params["dao"]! as! &DAOManager.DAO
       let collectionID = self.recipientCollection.borrow()!.getType().identifier
       
-      let nft <- treasuryRef.withdrawNFT(identifier: collectionID, id: self.withdrawID)
+      let nft <- daoRef.withdrawNFT(identifier: collectionID, id: self.withdrawID)
 
       self.recipientCollection.borrow()!.deposit(token: <- nft)
     }
 
     pub fun getView(): MyMultiSigV4.ActionView {
-      let view: MyMultiSigV4.ActionView = TreasuryActionsV4.InitializeActionView(
+      let view: MyMultiSigV4.ActionView = DAOActions.InitializeActionView(
         type: "TransferNFT",
         intent: self.intent,
         proposer: self.proposer
@@ -145,7 +145,7 @@ pub contract TreasuryActionsV4 {
 
       self.intent = "Transfer "
                         .concat(collectionID)
-                        .concat(" NFT from the treasury to ")
+                        .concat(" NFT from the dao to ")
                         .concat(recipientAddr.toString())
 
       self.proposer = proposer
@@ -154,66 +154,66 @@ pub contract TreasuryActionsV4 {
     }
   }
 
-  // Transfers an NFT from the treasury to another treasury
-  pub struct TransferNFTToTreasury: MyMultiSigV4.Action {
+  // Transfers an NFT from the dao to another dao
+  pub struct TransferNFTToDAO: MyMultiSigV4.Action {
     pub let intent: String
     pub let proposer: Address
     pub let identifier: String
-    pub let recipientTreasury: Capability<&{DAOTreasuryV4.TreasuryPublic}>
+    pub let recipientDAO: Capability<&{DAOManager.DAOPublic}>
     pub let withdrawID: UInt64
 
     access(account) fun execute(_ params: {String: AnyStruct}) {
-      let treasuryRef: &DAOTreasuryV4.Treasury = params["treasury"]! as! &DAOTreasuryV4.Treasury
-      let nft <- treasuryRef.withdrawNFT(identifier: self.identifier, id: self.withdrawID)
+      let daoRef: &DAOManager.DAO = params["dao"]! as! &DAOManager.DAO
+      let nft <- daoRef.withdrawNFT(identifier: self.identifier, id: self.withdrawID)
 
-      let recipientCollectionRef: &{NonFungibleToken.CollectionPublic} = self.recipientTreasury.borrow()!.borrowCollectionPublic(identifier: self.identifier)
+      let recipientCollectionRef: &{NonFungibleToken.CollectionPublic} = self.recipientDAO.borrow()!.borrowCollectionPublic(identifier: self.identifier)
       recipientCollectionRef.deposit(token: <- nft)
     }
 
     pub fun getView(): MyMultiSigV4.ActionView {
-      let view: MyMultiSigV4.ActionView = TreasuryActionsV4.InitializeActionView(
-        type: "TransferNFTToTreasury",
+      let view: MyMultiSigV4.ActionView = DAOActions.InitializeActionView(
+        type: "TransferNFTToDAO",
         intent: self.intent,
         proposer: self.proposer
       )
-      view.recipient = self.recipientTreasury.borrow()!.owner!.address
+      view.recipient = self.recipientDAO.borrow()!.owner!.address
       view.collectionId = self.identifier
       view.nftId = self.withdrawID
       return view
     }
 
-    init(recipientTreasury: Capability<&{DAOTreasuryV4.TreasuryPublic}>, identifier: String, nftID: UInt64, proposer: Address) {
-      let recipientAddr = recipientTreasury.borrow()!.owner!.address
+    init(recipientDAO: Capability<&{DAOManager.DAOPublic}>, identifier: String, nftID: UInt64, proposer: Address) {
+      let recipientAddr = recipientDAO.borrow()!.owner!.address
       self.intent = "Transfer an NFT from collection"
                         .concat(" ")
                         .concat(identifier)
                         .concat(" with ID ")
                         .concat(nftID.toString())
                         .concat(" ")
-                        .concat("from this Treasury to Treasury at address ")
+                        .concat("from this DAO to DAO at address ")
                         .concat(recipientAddr.toString())
       self.identifier = identifier
-      self.recipientTreasury = recipientTreasury
+      self.recipientDAO = recipientDAO
       self.withdrawID = nftID
       self.proposer = proposer
     }
   }
 
-  // Add a new signer to the treasury
+  // Add a new signer to the dao
   pub struct AddSigner: MyMultiSigV4.Action {
     pub let signer: Address
     pub let intent: String
     pub let proposer: Address
 
     access(account) fun execute(_ params: {String: AnyStruct}) {
-      let treasuryRef: &DAOTreasuryV4.Treasury = params["treasury"]! as! &DAOTreasuryV4.Treasury
+      let daoRef: &DAOManager.DAO = params["dao"]! as! &DAOManager.DAO
 
-      let manager = treasuryRef.borrowManager()
+      let manager = daoRef.borrowManager()
       manager.addSigner(signer: self.signer)
     }
 
     pub fun getView(): MyMultiSigV4.ActionView {
-      let view: MyMultiSigV4.ActionView = TreasuryActionsV4.InitializeActionView(
+      let view: MyMultiSigV4.ActionView = DAOActions.InitializeActionView(
         type: "AddSigner",
         intent: self.intent,
         proposer: self.proposer
@@ -231,21 +231,21 @@ pub contract TreasuryActionsV4 {
     }
   }
 
-  // Remove a signer from the treasury
+  // Remove a signer from the dao
   pub struct RemoveSigner: MyMultiSigV4.Action {
     pub let signer: Address
     pub let intent: String
     pub let proposer: Address
 
     access(account) fun execute(_ params: {String: AnyStruct}) {
-      let treasuryRef: &DAOTreasuryV4.Treasury = params["treasury"]! as! &DAOTreasuryV4.Treasury
+      let daoRef: &DAOManager.DAO = params["dao"]! as! &DAOManager.DAO
 
-      let manager = treasuryRef.borrowManager()
+      let manager = daoRef.borrowManager()
       manager.removeSigner(signer: self.signer)
     }
 
     pub fun getView(): MyMultiSigV4.ActionView {
-      let view: MyMultiSigV4.ActionView = TreasuryActionsV4.InitializeActionView(
+      let view: MyMultiSigV4.ActionView = DAOActions.InitializeActionView(
         type: "RemoveSigner",
         intent: self.intent,
         proposer: self.proposer
@@ -270,15 +270,15 @@ pub contract TreasuryActionsV4 {
     pub let proposer: Address
 
     access(account) fun execute(_ params: {String: AnyStruct}) {
-      let treasuryRef: &DAOTreasuryV4.Treasury = params["treasury"]! as! &DAOTreasuryV4.Treasury
+      let daoRef: &DAOManager.DAO = params["dao"]! as! &DAOManager.DAO
 
-      let manager = treasuryRef.borrowManager()
+      let manager = daoRef.borrowManager()
       let oldThreshold = manager.threshold
       manager.updateThreshold(newThreshold: self.threshold)
     }
 
     pub fun getView(): MyMultiSigV4.ActionView {
-      let view: MyMultiSigV4.ActionView = TreasuryActionsV4.InitializeActionView(
+      let view: MyMultiSigV4.ActionView = DAOActions.InitializeActionView(
         type: "UpdateThreshold",
         intent: self.intent,
         proposer: self.proposer

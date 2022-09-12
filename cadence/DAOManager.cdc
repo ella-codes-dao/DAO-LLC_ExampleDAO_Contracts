@@ -3,41 +3,41 @@ import FungibleToken from "./utility/FungibleToken.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import FCLCrypto from "./utility/FCLCrypto.cdc"
 
-pub contract DAOTreasuryV4 {
+pub contract DAOManager {
 
-  pub let TreasuryStoragePath: StoragePath
-  pub let TreasuryPublicPath: PublicPath
+  pub let DAOManagerStoragePath: StoragePath
+  pub let DAOManagerPublicPath: PublicPath
 
   // ------- Events ------
 
-  // Treasury
-  pub event TreasuryInitialized(initialSigners: [Address], initialThreshold: UInt)
+  // DAOManager
+  pub event DAOInitialized(initialSigners: [Address], initialThreshold: UInt)
 
   // Actions
-  pub event ActionProposed(treasuryUUID: UInt64, actionUUID: UInt64, proposer: Address, actionView: MyMultiSigV4.ActionView)
-  pub event ActionExecuted(treasuryUUID: UInt64, actionUUID: UInt64, executor: Address, actionView: MyMultiSigV4.ActionView, signerResponses: {Address: UInt})
-  pub event ActionDestroyed(treasuryUUID: UInt64, actionUUID: UInt64, signerResponses: {Address: UInt})
-  pub event ActionApprovedBySigner(treasuryUUID: UInt64, address: Address, actionUUID: UInt64, signerResponses: {Address: UInt})
-  pub event ActionRejectedBySigner(treasuryUUID: UInt64, address: Address, actionUUID: UInt64, signerResponses: {Address: UInt})
+  pub event ActionProposed(daoUUID: UInt64, actionUUID: UInt64, proposer: Address, actionView: MyMultiSigV4.ActionView)
+  pub event ActionExecuted(daoUUID: UInt64, actionUUID: UInt64, executor: Address, actionView: MyMultiSigV4.ActionView, signerResponses: {Address: UInt})
+  pub event ActionDestroyed(daoUUID: UInt64, actionUUID: UInt64, signerResponses: {Address: UInt})
+  pub event ActionApprovedBySigner(daoUUID: UInt64, address: Address, actionUUID: UInt64, signerResponses: {Address: UInt})
+  pub event ActionRejectedBySigner(daoUUID: UInt64, address: Address, actionUUID: UInt64, signerResponses: {Address: UInt})
 
   // Vaults
-  pub event VaultDeposited(treasuryUUID: UInt64, signerAddr: Address, vaultID: String)
-  pub event VaultDestroyed(treasuryUUID: UInt64, signerAddr: Address, vaultID: String)
+  pub event VaultDeposited(daoUUID: UInt64, signerAddr: Address, vaultID: String)
+  pub event VaultDestroyed(daoUUID: UInt64, signerAddr: Address, vaultID: String)
 
   // Collections
-  pub event CollectionDeposited(treasuryUUID: UInt64, signerAddr: Address, collectionID: String)
-  pub event CollectionDestroyed(treasuryUUID: UInt64, signerAddr: Address, collectionID: String)
+  pub event CollectionDeposited(daoUUID: UInt64, signerAddr: Address, collectionID: String)
+  pub event CollectionDestroyed(daoUUID: UInt64, signerAddr: Address, collectionID: String)
 
   // Tokens
-  pub event TokensDeposited(treasuryUUID: UInt64, identifier: String)
+  pub event TokensDeposited(daoUUID: UInt64, identifier: String)
 
   // NFTs
-  pub event NFTDeposited(treasuryUUID: UInt64, collectionID: String, nftID: UInt64)
+  pub event NFTDeposited(daoUUID: UInt64, collectionID: String, nftID: UInt64)
 
   //
   // ------- Interfaces + Resources -------
   //
-  pub resource interface TreasuryPublic {
+  pub resource interface DAOPublic {
     pub fun signerApproveAction(actionUUID: UInt64, messageSignaturePayload: MyMultiSigV4.MessageSignaturePayload)
     pub fun signerRejectAction(actionUUID: UInt64, messageSignaturePayload: MyMultiSigV4.MessageSignaturePayload)
     pub fun proposeAction(action: {MyMultiSigV4.Action}, signaturePayload: MyMultiSigV4.MessageSignaturePayload): UInt64
@@ -55,7 +55,7 @@ pub contract DAOTreasuryV4 {
     pub fun getCollectionIdentifiers(): [String]
   }
 
-  pub resource Treasury: MyMultiSigV4.MultiSign, TreasuryPublic {
+  pub resource DAO: MyMultiSigV4.MultiSign, DAOPublic {
     access(contract) let multiSignManager: @MyMultiSigV4.Manager
     access(self) var vaults: @{String: FungibleToken.Vault}
     access(self) var collections: @{String: NonFungibleToken.Collection}
@@ -63,18 +63,18 @@ pub contract DAOTreasuryV4 {
     pub fun signerApproveAction(actionUUID: UInt64, messageSignaturePayload: MyMultiSigV4.MessageSignaturePayload) {
       self.multiSignManager.signerApproveAction(actionUUID: actionUUID, messageSignaturePayload: messageSignaturePayload) 
       let signerResponses = self.multiSignManager.getSignerResponsesForAction(actionUUID: actionUUID)
-      emit ActionApprovedBySigner(treasuryUUID: self.uuid, address: messageSignaturePayload.signingAddr, actionUUID: actionUUID, signerResponses: signerResponses)
+      emit ActionApprovedBySigner(daoUUID: self.uuid, address: messageSignaturePayload.signingAddr, actionUUID: actionUUID, signerResponses: signerResponses)
     }
 
     pub fun signerRejectAction(actionUUID: UInt64, messageSignaturePayload: MyMultiSigV4.MessageSignaturePayload) {
       self.multiSignManager.signerRejectAction(actionUUID: actionUUID, messageSignaturePayload: messageSignaturePayload) 
       let signerResponses = self.multiSignManager.getSignerResponsesForAction(actionUUID: actionUUID)
-      emit ActionRejectedBySigner(treasuryUUID: self.uuid, address: messageSignaturePayload.signingAddr, actionUUID: actionUUID, signerResponses: signerResponses)
+      emit ActionRejectedBySigner(daoUUID: self.uuid, address: messageSignaturePayload.signingAddr, actionUUID: actionUUID, signerResponses: signerResponses)
 
       // Destroy action if there are sufficient rejections
       if self.multiSignManager.canDestroyAction(actionUUID: actionUUID) {
          self.multiSignManager.attemptDestroyAction(actionUUID: actionUUID)
-         emit ActionDestroyed(treasuryUUID: self.uuid, actionUUID: actionUUID, signerResponses: signerResponses)
+         emit ActionDestroyed(daoUUID: self.uuid, actionUUID: actionUUID, signerResponses: signerResponses)
       }
     }
 
@@ -84,13 +84,13 @@ pub contract DAOTreasuryV4 {
       let actionUUID = self.multiSignManager.createMultiSign(action: action)
       let _action = self.multiSignManager.borrowAction(actionUUID: actionUUID)
       let actionView = _action.getView()
-      emit ActionProposed(treasuryUUID: self.uuid, actionUUID: actionUUID, proposer: actionView.proposer, actionView: actionView)
+      emit ActionProposed(daoUUID: self.uuid, actionUUID: actionUUID, proposer: actionView.proposer, actionView: actionView)
       return actionUUID
     }
 
     /*
       Note that we pass through a reference to this entire
-      treasury as a parameter here. So the action can do whatever it 
+      dao as a parameter here. So the action can do whatever it 
       wants. This means it's very imporant for the signers
       to know what they are signing.
     */
@@ -99,11 +99,11 @@ pub contract DAOTreasuryV4 {
 
       let action = self.multiSignManager.borrowAction(actionUUID: actionUUID)
       let actionView = action.getView()
-      let selfRef: &Treasury = &self as &Treasury
+      let selfRef: &DAO = &self as &DAO
       let signerResponses = self.multiSignManager.getSignerResponsesForAction(actionUUID: actionUUID)
-      self.multiSignManager.executeAction(actionUUID: actionUUID, {"treasury": selfRef})
+      self.multiSignManager.executeAction(actionUUID: actionUUID, {"dao": selfRef})
       emit ActionExecuted(
-        treasuryUUID: self.uuid,
+        daoUUID: self.uuid,
         actionUUID: actionUUID,
         executor: signaturePayload.signingAddr,
         actionView: actionView,
@@ -112,9 +112,9 @@ pub contract DAOTreasuryV4 {
     }
 
     access(self) fun validateTreasurySigner(identifier: String, signaturePayload: MyMultiSigV4.MessageSignaturePayload) {
-      // ------- Validate Address is a Signer on the Treasury -----
+      // ------- Validate Address is a Signer on the DAO -----
       let signers = self.multiSignManager.getSigners()
-      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this Treasury")
+      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this DAO")
 
       // ------- Validate Message --------
       // message format: {identifier hex}{blockId}
@@ -156,12 +156,12 @@ pub contract DAOTreasuryV4 {
 
     pub fun signerRemoveVault(identifier: String, signaturePayload: MyMultiSigV4.MessageSignaturePayload) {
       pre {
-        self.vaults[identifier] != nil: "Vault doesn't exist in this treasury."
+        self.vaults[identifier] != nil: "Vault doesn't exist in this dao."
         self.vaults[identifier]?.balance == 0.0: "Vault must be empty before it can be removed."
       }
-      // ------- Validate Address is a Signer on the Treasury -----
+      // ------- Validate Address is a Signer on the DAO -----
       let signers = self.multiSignManager.getSigners()
-      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this Treasury")
+      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this DAO")
 
       // ------- Validate Message --------
       // message format: {collection identifier hex}{blockId}
@@ -189,10 +189,10 @@ pub contract DAOTreasuryV4 {
         message: "Invalid Signature"
       )
 
-      // If all asserts passed, remove vault from the Treasury and destroy
+      // If all asserts passed, remove vault from the DAO and destroy
       let vault <- self.vaults.remove(key: identifier)
       destroy vault
-      emit VaultDestroyed(treasuryUUID: self.uuid, signerAddr: signaturePayload.signingAddr, vaultID: identifier)
+      emit VaultDestroyed(daoUUID: self.uuid, signerAddr: signaturePayload.signingAddr, vaultID: identifier)
     }
 
     // Deposit a Vault //
@@ -224,9 +224,9 @@ pub contract DAOTreasuryV4 {
     // ------- Collections ------- 
 
     pub fun signerDepositCollection(collection: @NonFungibleToken.Collection, signaturePayload: MyMultiSigV4.MessageSignaturePayload) {
-      // ------- Validate Address is a Signer on the Treasury -----
+      // ------- Validate Address is a Signer on the DAO -----
       let signers = self.multiSignManager.getSigners()
-      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this Treasury")
+      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this DAO")
 
       // ------- Validate Message --------
       // message format: {collection identifier hex}{blockId}
@@ -255,19 +255,19 @@ pub contract DAOTreasuryV4 {
         message: "Invalid Signature"
       )
 
-      // If all asserts passed, deposit vault into Treasury
+      // If all asserts passed, deposit vault into DAO
       self.depositCollection(collection: <- collection)
-      emit CollectionDeposited(treasuryUUID: self.uuid, signerAddr: signaturePayload.signingAddr, collectionID: identifier)
+      emit CollectionDeposited(daoUUID: self.uuid, signerAddr: signaturePayload.signingAddr, collectionID: identifier)
     }
 
     pub fun signerRemoveCollection(identifier: String, signaturePayload: MyMultiSigV4.MessageSignaturePayload) {
       pre {
-        self.collections[identifier] != nil: "Collection doesn't exist in this treasury."
+        self.collections[identifier] != nil: "Collection doesn't exist in this dao."
         self.collections[identifier]?.getIDs()?.length == 0 : "Collection must be empty before it can be removed."
       }
-      // ------- Validate Address is a Signer on the Treasury -----
+      // ------- Validate Address is a Signer on the DAO -----
       let signers = self.multiSignManager.getSigners()
-      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this Treasury")
+      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this DAO")
 
       // ------- Validate Message --------
       // message format: {collection identifier hex}{blockId}
@@ -296,10 +296,10 @@ pub contract DAOTreasuryV4 {
         message: "Invalid Signature"
       )
 
-      // If all asserts passed, remove vault from the Treasury and destroy
+      // If all asserts passed, remove vault from the DAO and destroy
       let collection <- self.collections.remove(key: identifier)
       destroy collection
-      emit CollectionDestroyed(treasuryUUID: self.uuid, signerAddr: signaturePayload.signingAddr, collectionID: identifier)
+      emit CollectionDestroyed(daoUUID: self.uuid, signerAddr: signaturePayload.signingAddr, collectionID: identifier)
     }
 
     // Deposit a Collection //
@@ -310,9 +310,9 @@ pub contract DAOTreasuryV4 {
 
     // ------- Vaults ------- 
     pub fun signerDepositVault(vault: @FungibleToken.Vault, signaturePayload: MyMultiSigV4.MessageSignaturePayload) {
-      // ------- Validate Address is a Signer on the Treasury -----
+      // ------- Validate Address is a Signer on the DAO -----
       let signers = self.multiSignManager.getSigners()
-      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this Treasury")
+      assert(signers[signaturePayload.signingAddr] == true, message: "Address is not a signer on this DAO")
 
       // ------- Validate Message --------
       // message format: {vault identifier hex}{blockId}
@@ -343,14 +343,14 @@ pub contract DAOTreasuryV4 {
         message: "Invalid Signature"
       )
 
-      // If all asserts passed, deposit vault into Treasury
+      // If all asserts passed, deposit vault into DAO
       self.depositVault(vault: <- vault)
-      emit VaultDeposited(treasuryUUID: self.uuid, signerAddr: signaturePayload.signingAddr, vaultID: identifier)
+      emit VaultDeposited(daoUUID: self.uuid, signerAddr: signaturePayload.signingAddr, vaultID: identifier)
     }
 
     // Deposit tokens //
     pub fun depositTokens(identifier: String, vault: @FungibleToken.Vault) {
-      emit TokensDeposited(treasuryUUID: self.uuid, identifier: identifier)
+      emit TokensDeposited(daoUUID: self.uuid, identifier: identifier)
 
       let vaultRef = (&self.vaults[identifier] as &FungibleToken.Vault?)!
       vaultRef.deposit(from: <- vault)
@@ -359,7 +359,7 @@ pub contract DAOTreasuryV4 {
 
     // Deposit an NFT //
     pub fun depositNFT(identifier: String, nft: @NonFungibleToken.NFT) {
-      emit NFTDeposited(treasuryUUID: self.uuid, collectionID: identifier, nftID: nft.id)
+      emit NFTDeposited(daoUUID: self.uuid, collectionID: identifier, nftID: nft.id)
 
       let collectionRef = (&self.collections[identifier] as &NonFungibleToken.Collection?)!
       collectionRef.deposit(token: <- nft)
@@ -390,13 +390,13 @@ pub contract DAOTreasuryV4 {
       // Check if Valuts are empty
       for identifier in self.vaults.keys {
         let vaultRef = (&self.vaults[identifier] as &FungibleToken.Vault?)!
-        assert(vaultRef.balance == 0.0, message: "Vault is not empty! Treasury cannot be destroyed.")
+        assert(vaultRef.balance == 0.0, message: "Vault is not empty! DAO cannot be destroyed.")
       }
 
       // Check if Collections are empty
       for identifier in self.collections.keys {
         let collectionRef = (&self.collections[identifier] as &NonFungibleToken.Collection?)!
-        assert(collectionRef.getIDs().length == 0, message: "Collection is not empty! Treasury cannot be destroyed.")
+        assert(collectionRef.getIDs().length == 0, message: "Collection is not empty! DAO cannot be destroyed.")
       }
 
       // Only destroy if both vaults and collections are empty
@@ -406,13 +406,13 @@ pub contract DAOTreasuryV4 {
     }
   }
   
-  pub fun createTreasury(initialSigners: [Address], initialThreshold: UInt): @Treasury {
-    return <- create Treasury(initialSigners: initialSigners, initialThreshold: initialThreshold)
+  pub fun createDAO(initialSigners: [Address], initialThreshold: UInt): @DAO {
+    return <- create DAO(initialSigners: initialSigners, initialThreshold: initialThreshold)
   }
 
   init() {
-    self.TreasuryStoragePath = /storage/DAOTreasuryV4
-    self.TreasuryPublicPath = /public/DAOTreasuryV4
+    self.DAOManagerStoragePath = /storage/DAOManager
+    self.DAOManagerPublicPath = /public/DAOManager
   }
 
 }
