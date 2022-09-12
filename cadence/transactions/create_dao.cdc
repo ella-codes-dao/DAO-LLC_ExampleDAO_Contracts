@@ -18,7 +18,7 @@ transaction(initialSigners: [Address], initialThreshold: UInt) {
     dao.depositVault(vault: <- fusdVault)
 
     // Save Treasury to the account
-    signer.save(<- dao, to: DAOManager.DAOManagerStoragePath)
+    signer.save(<- dao, to: DAOManager.DAOStoragePath)
     signer.link<&DAOManager.DAO{DAOManager.DAOPublic}>(DAOManager.DAOPublicPath, target: DAOManager.DAOStoragePath)
   }
 }
