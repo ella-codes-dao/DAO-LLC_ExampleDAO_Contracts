@@ -1,12 +1,12 @@
-import MyMultiSigV4 from 0x01cf0e2f2f715450
-import FungibleToken from 0x01cf0e2f2f715450
-import NonFungibleToken from 0x01cf0e2f2f715450
-import FCLCrypto from 0x01cf0e2f2f715450
+import MyMultiSigV4 from "./MyMultiSig.cdc"
+import FungibleToken from "./utility/FungibleToken.cdc"
+import NonFungibleToken from "./utility/NonFungibleToken.cdc"
+import FCLCrypto from "./utility/FCLCrypto.cdc"
 
 pub contract DAOManager {
 
-  pub let DAOManagerStoragePath: StoragePath
-  pub let DAOManagerPublicPath: PublicPath
+  pub let DAOStoragePath: StoragePath
+  pub let DAOPublicPath: PublicPath
 
   // ------- Events ------
 
@@ -411,8 +411,8 @@ pub contract DAOManager {
   }
 
   init() {
-    self.DAOManagerStoragePath = /storage/DAOManager
-    self.DAOManagerPublicPath = /public/DAOManager
+    self.DAOStoragePath = /storage/DAOManager
+    self.DAOPublicPath = /public/DAOManager
   }
 
 }

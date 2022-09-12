@@ -1,6 +1,6 @@
 import Crypto
-import FungibleToken from 0x01cf0e2f2f715450
-import FCLCrypto from 0x01cf0e2f2f715450
+import FungibleToken from "./utility/FungibleToken.cdc"
+import FCLCrypto from "./utility/FCLCrypto.cdc"
 
 pub contract MyMultiSigV4 {
 
