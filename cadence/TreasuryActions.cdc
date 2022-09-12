@@ -1,7 +1,7 @@
 import MyMultiSigV4 from "./MyMultiSig.cdc"
 import DAOTreasuryV4 from "./DAOTreasury.cdc"
-import FungibleToken from "./core/FungibleToken.cdc"
-import NonFungibleToken from "./core/NonFungibleToken.cdc"
+import FungibleToken from "./utility/FungibleToken.cdc"
+import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 
 pub contract TreasuryActionsV4 {
 

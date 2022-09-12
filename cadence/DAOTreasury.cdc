@@ -1,7 +1,7 @@
 import MyMultiSigV4 from "./MyMultiSig.cdc"
-import FungibleToken from "./core/FungibleToken.cdc"
-import NonFungibleToken from "./core/NonFungibleToken.cdc"
-import FCLCrypto from "./core/FCLCrypto.cdc"
+import FungibleToken from "./utility/FungibleToken.cdc"
+import NonFungibleToken from "./utility/NonFungibleToken.cdc"
+import FCLCrypto from "./utility/FCLCrypto.cdc"
 
 pub contract DAOTreasuryV4 {
 
