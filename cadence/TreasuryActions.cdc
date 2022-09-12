@@ -1,7 +1,7 @@
-import MyMultiSigV4 from "./MyMultiSig.cdc"
-import DAOManager from "./DAOManager.cdc"
-import FungibleToken from "./utility/FungibleToken.cdc"
-import NonFungibleToken from "./utility/NonFungibleToken.cdc"
+import MyMultiSigV4 from 0x01cf0e2f2f715450
+import DAOManager from 0x01cf0e2f2f715450
+import FungibleToken from 0x01cf0e2f2f715450
+import NonFungibleToken from 0x01cf0e2f2f715450
 
 pub contract DAOActions {
 

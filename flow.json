@@ -1,4 +1,19 @@
 {
+	"emulators": {
+		"default": {
+			"port": 3569,
+			"serviceAccount": "emulator-account"
+		}
+	},
+	"contracts": {
+		"FungibleToken": {
+			"source": "./cadence/utility/FungibleToken.cdc",
+			"aliases": {
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
+		"ExampleToken": "./cadence/ExampleToken.cdc"
+	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
 		"mainnet": "access.mainnet.nodes.onflow.org:9000",
@@ -7,7 +22,15 @@
 	"accounts": {
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
-			"key": "98e2ff520c58d85d5c4b8c0768dad871051bdcb19ce22c4d8b336cd98d865557"
+			"key": "dd6e0fd35190ee5aba55bb3c2ec1630c8a8fe75ef7e9a59f979e9e3a0518edb6"
+		}
+	},
+	"deployments": {
+		"emulator": {
+			"emulator-account": [
+				"FungibleToken",
+				"ExampleToken"
+			]
 		}
 	}
 }
